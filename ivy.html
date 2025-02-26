@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <title>Ivy - Assistente Virtual</title>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        /* Estilização do cabeçalho */
+        #banner {
+            align-items: center;
+            background: linear-gradient(90deg, #D81E05, #FFB800); /* Degradê da logo */
+            color: white;
+            display: flex;
+            height: 50px;
+            padding: 0 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        /* Ajusta o chat abaixo do cabeçalho */
+        #webchat {
+            height: calc(100% - 50px);
+            overflow: hidden;
+            position: fixed;
+            top: 50px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <div id="banner">
+            Ivy - Assistente Virtual
+        </div>
+        <div id="webchat" role="main"></div>
+    </div>
+
+    <script crossorigin="anonymous" src="https://cdn.botframework.com/botframework-webchat/latest/webchat.js"></script>
+
+    <script>
+        (async function () {
+            const styleOptions = {
+                accent: '#D81E05', /* Cor de destaque baseada na logo */
+                botAvatarBackgroundColor: '#FFFFFF', /* Fundo branco para destacar a logo */
+                botAvatarImage: 'https://learn.microsoft.com/azure/bot-service/v4sdk/media/logo_bot.svg', /* Substitua pelo URL da logo do Ivy */
+                botAvatarInitials: 'IV',
+                userAvatarImage: 'https://yourdomain.com/path/to/user-avatar.png', /* Substitua pelo URL do avatar do usuário */
+                backgroundColor: '#FFF5E1', /* Cor de fundo suave para o chat */
+                bubbleBackground: '#FFB800', /* Fundo das mensagens do bot */
+                bubbleFromUserBackground: '#D81E05', /* Fundo das mensagens do usuário */
+                bubbleTextColor: '#000000', /* Cor do texto do bot */
+                bubbleFromUserTextColor: '#FFFFFF', /* Cor do texto do usuário */
+                hideUploadButton: true, /* Remove botão de upload de arquivos */
+                enableUploadThumbnail: false /* Garante que anexos não sejam permitidos */
+            };
+
+            // Token Endpoint correto para o Ivy
+            const tokenEndpointURL = new URL("https://default9485bd5592c0421296ca9143bb8a70.45.environment.api.powerplatform.com/powervirtualagents/botsbyschema/cr2be_ivy/directline/token?api-version=2022-03-01-preview");
+
+            const apiVersion = tokenEndpointURL.searchParams.get('api-version');
+
+            const [directLineURL, token] = await Promise.all([
+                fetch(new URL(`/powervirtualagents/regionalchannelsettings?api-version=${apiVersion}`, tokenEndpointURL))
+                    .then(response => {
+                        if (!response.ok) throw new Error('Erro ao obter configurações do canal.');
+                        return response.json();
+                    })
+                    .then(({ channelUrlsById: { directline } }) => directline),
+
+                fetch(tokenEndpointURL)
+                    .then(response => {
+                        if (!response.ok) throw new Error('Erro ao obter o token Direct Line.');
+                        return response.json();
+                    })
+                    .then(({ token }) => token)
+            ]);
+
+            const directLine = WebChat.createDirectLine({ 
+                domain: new URL('v3/directline', directLineURL), 
+                token 
+            });
+
+            // Envia um evento "startConversation" quando a conexão for estabelecida
+            const subscription = directLine.connectionStatus$.subscribe({
+                next(value) {
+                    if (value === 2) {
+                        directLine.postActivity({
+                            localTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                            locale: document.documentElement.lang || 'pt-BR',
+                            name: 'startConversation',
+                            type: 'event'
+                        }).subscribe();
+
+                        subscription.unsubscribe();
+                    }
+                }
+            });
+
+            WebChat.renderWebChat({ directLine, styleOptions }, document.getElementById('webchat'));
+        })();
+    </script>
+</body>
+</html>
